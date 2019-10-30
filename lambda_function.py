@@ -5,7 +5,6 @@ from jira import JIRAError
 import json
 import os
 
-
 jira_user = os.environ["jira_user"]
 jira_token = os.environ["jira_token"]
 
@@ -23,9 +22,6 @@ def lambda_handler(event, context):
     # Code will execute quickly, so we add a 1 second intentional delay so you can see that in time remaining value.
     print("Time remaining (MS):", context.get_remaining_time_in_millis())
 
-    # https://iroz949ddd.execute-api.us-east-1.amazonaws.com/dev
-    # test443secgroup (sg-0b091eef7b7e5cddd)
-
     # get account's api key and secret using aws_account passed in as argument
     try:
         body_values = json.loads(event['body'])
@@ -39,10 +35,18 @@ def lambda_handler(event, context):
 
     except ClientError as e:
         print("ClientError: ", e.response)
-        return json.dumps("{}".format(e.response))
+        return {
+            'statusCode': 500,
+            'body': json.dumps("{}".format(str(e))),
+            'headers': {'Content-Type': 'application/json'}
+        }
     except Exception as e:
         print("Exception: ", e)
-        return json.dumps("{}".format(e))
+        return {
+            'statusCode': 500,
+            'body': json.dumps("{}".format(str(e))),
+            'headers': {'Content-Type': 'application/json'}
+        }
 
 
     try:
@@ -106,11 +110,10 @@ def lambda_handler(event, context):
                     'headers': {'Content-Type': 'application/json'}
                 }
 
-
     except KeyError as e:
         return {
             'statusCode': 500,
-            'body': json.dumps("KeyError, check that this request has the correct parameter for: {}".format(str(e))),
+            'body': json.dumps("KeyError: check that this request has the correct parameter and argument for: {}".format(str(e))),
             'headers': {'Content-Type': 'application/json'}
         }
     except Exception as e:
@@ -145,21 +148,17 @@ def get_aws_account_creds(aws_account):
 
 
 def jira_ticket_add_comment(user, action, secgroup_id, protocol, cidr_ip, port, sor_ticket):
-    try:
-        jira_api_url = "https://perzoinc.atlassian.net"
-        jira = JIRA(jira_api_url, basic_auth=(jira_user, jira_token))
 
-        issue = jira.issue(sor_ticket)
-        issue_comment = "{} {} rule {} \nPort: {}\nProtocol: {}\n Security Group ID: {}".format(user, action, cidr_ip, port, protocol, secgroup_id)
-        jira.add_comment(issue, issue_comment)
+    jira_api_url = "https://perzoinc.atlassian.net"
+    jira = JIRA(jira_api_url, basic_auth=(jira_user, jira_token))
 
-        print("Successfully added comment to Jira")
-        return "success"
+    issue = jira.issue(sor_ticket)
+    issue_comment = "{} {} rule {} \nPort: {}\nProtocol: {}\n Security Group ID: {}".format(user, action, cidr_ip, port, protocol, secgroup_id)
+    jira_response = jira.add_comment(issue, issue_comment)
 
-    except JIRAError as je:
-        print("Failed adding comment to Jira")
-        print(je.text)
-        return je.text
+    print("jira response: ", jira_response)
+    return jira_response
+
 
 
 
@@ -203,7 +202,7 @@ def check_allowed_secgroup(region, secgroup_id):
         print(e)
         return e
 
-    print(group_name)
+    print("Group name: ", group_name)
 
     # checks for correct sec group
     if (('sftp' in group_name) or ('443' in group_name) or ('8444' in group_name)):
@@ -224,6 +223,7 @@ def get_rules(region, secgroup_id):
         sec_group_rules = response['SecurityGroups'][0]['IpPermissions']
         print(sec_group_rules)
         return sec_group_rules
+
     except ClientError as e:
         print(e.response)
         return e
@@ -245,6 +245,7 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
     # can only modify following ports (standard, api or sftp)
     if ((port == 443 or port == 8444 or port == 22) and (allowed_to_modify)):
         try:
+            jira_response = jira_ticket_add_comment(user, "removed", secgroup_id, protocol, cidr_ip, port, sor_ticket)
             sec_group_boto_resource = get_boto_resource(region=region, service='ec2', secgroup_id=secgroup_id)
             response = sec_group_boto_resource.revoke_ingress(
                 IpProtocol=protocol,
@@ -253,18 +254,15 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 ToPort=port,
                 DryRun=False
             )
-            # print(response)
-            if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-                jira_response = jira_ticket_add_comment(user, "removed", secgroup_id, protocol, cidr_ip, port, sor_ticket)
-                if jira_response == "success":
-                    print("Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket))
-                else:
-                    return "Rule successfully removed, but jira comment failed: {}".format(jira_response)
-                return "Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
-            else:
-                return "No action taken"
+
+            return "Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
+        except JIRAError as je:
+            print("Failed adding comment to Jira: ", je.text)
+            return je.text
         except ClientError as e:
             return "Client Error: {}".format(e)
+        except Exception as e:
+            return e
     else:
         return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this specific security group"
 
@@ -287,6 +285,7 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
     if ((port == 443 or port == 8444 or port == 22) and (allowed_to_modify)):
 
         try:
+            jira_response = jira_ticket_add_comment(user, "added", secgroup_id, protocol, cidr_ip, port, sor_ticket)
             sec_group_boto_resource = get_boto_resource(region=region, service='ec2', secgroup_id=secgroup_id)
             # add rule
             response = sec_group_boto_resource.authorize_ingress(
@@ -305,19 +304,14 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 ],
                 DryRun=False
             )
-            if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-                # add jira comment
-                jira_response = jira_ticket_add_comment(user, "added", secgroup_id, protocol, cidr_ip, port, sor_ticket)
-                if jira_response == "success":
-                    print("Successfully added rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket))
-                else:
-                    return "Rule successfully added, but jira comment failed: {}".format(jira_response)
-                print("Successfully added rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket))
-                return "Successfully added rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
-            else:
-                return "No action taken"
+            return "Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
+        except JIRAError as je:
+            print("Failed adding comment to Jira: ", je.text)
+            return je.text
         except ClientError as e:
             return "Client Error: {}".format(e)
+        except Exception as e:
+            return e
 
     else:
         return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this specific security group"
