@@ -161,7 +161,6 @@ def jira_ticket_add_comment(user, action, secgroup_id, protocol, cidr_ip, port, 
 
 
 
-
 def get_boto_resource(region, service, secgroup_id):
 
     ec2 = boto3.resource(
@@ -258,13 +257,13 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
             return "Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Failed adding comment to Jira: ", je.text)
-            return je.text
+            return "Jira adding comment failed: " + je.text
         except ClientError as e:
             return "Client Error: {}".format(e)
         except Exception as e:
             return e
     else:
-        return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this specific security group"
+        return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group"
 
 
 
@@ -307,12 +306,12 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
             return "Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Failed adding comment to Jira: ", je.text)
-            return je.text
+            return "Jira adding comment failed: " + je.text
         except ClientError as e:
             return "Client Error: {}".format(e)
         except Exception as e:
             return e
 
     else:
-        return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this specific security group"
+        return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group"
 
