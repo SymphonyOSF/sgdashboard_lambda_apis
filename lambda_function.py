@@ -303,7 +303,7 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 ],
                 DryRun=False
             )
-            return "Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
+            return "Successfully added rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Failed adding comment to Jira: ", je.text)
             return "Jira adding comment failed: " + je.text
