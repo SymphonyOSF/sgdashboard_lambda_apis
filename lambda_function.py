@@ -205,9 +205,12 @@ def check_allowed_secgroup(region, secgroup_id):
 
     # checks for correct sec group
     if (('sftp' in group_name) or ('443' in group_name) or ('8444' in group_name)):
-        if ('4432407' not in group_name) and ('443_2407' not in group_name):
+        if ('4432407' not in group_name) and ('443_2407' not in group_name) and ('443mds' not in group_name):
             print("Correct sec group")
             return True
+        else:
+            print("Incorrect sec group")
+            return False
     else:
         print("Incorrect sec group")
         return False
