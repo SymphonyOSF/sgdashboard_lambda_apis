@@ -257,15 +257,19 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 DryRun=False
             )
 
+            print("Successfully removed rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
             return "Successfully removed rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Jira: failed adding comment " + je.text)
             return "Jira: failed adding comment " + je.text
         except ClientError as e:
+            print("Client Error: {}".format(e))
             return "Client Error: {}".format(e)
         except Exception as e:
+            print(e)
             return e
     else:
+        print("Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group")
         return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group"
 
 
@@ -306,15 +310,20 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 ],
                 DryRun=False
             )
+
+            print("Successfully added rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
             return "Successfully added rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Jira: failed adding comment " + je.text)
             return "Jira: failed adding comment " + je.text
         except ClientError as e:
+            print("Client Error: {}".format(e))
             return "Client Error: {}".format(e)
         except Exception as e:
+            print(e)
             return e
 
     else:
+        print("Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group")
         return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group"
 
