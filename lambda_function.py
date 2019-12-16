@@ -51,7 +51,7 @@ def lambda_handler(event, context):
 
     try:
         if event['httpMethod'] == 'GET':
-            print("Hello from Lambda! GET method")
+            print("GET method")
             # body values passed in
             body_values = json.loads(event['body'])
             secgroup_id = body_values['secgroup_id']
@@ -68,7 +68,7 @@ def lambda_handler(event, context):
 
 
         if event['httpMethod'] == 'DELETE':
-            print("Hello from Lambda! DELETE method")
+            print("DELETE method")
             # body values passed in
             body_values = json.loads(event['body'])
 
@@ -90,7 +90,7 @@ def lambda_handler(event, context):
 
 
         if event['httpMethod'] == 'POST':
-            print("Hello from Lambda! POST method")
+            print("POST method")
             # body values passed in
             body_values = json.loads(event['body'])
 
@@ -156,8 +156,8 @@ def jira_ticket_add_comment(user, action, secgroup_id, protocol, cidr_ip, port, 
     issue_comment = "{} {} rule {} \nPort: {}\nProtocol: {}\n Security Group ID: {}".format(user, action, cidr_ip, port, protocol, secgroup_id)
     jira_response = jira.add_comment(issue, issue_comment)
 
-    print("jira response: ", jira_response)
-    return jira_response
+    print("Jira response: {} {} rule {} Port: {}, Protocol: {}, Security Group ID: {}".format(user, action, cidr_ip, port, protocol, secgroup_id))
+    return "Jira response: {} {} rule {} Port: {}, Protocol: {}, Security Group ID: {}".format(user, action, cidr_ip, port, protocol, secgroup_id)
 
 
 
@@ -257,8 +257,8 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 DryRun=False
             )
 
-            print("Successfully removed rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
-            return "Successfully removed rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
+            print("Successfully removed rule; user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
+            return "Successfully removed rule; user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Jira: failed adding comment " + je.text)
             return "Jira: failed adding comment " + je.text
@@ -311,8 +311,8 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 DryRun=False
             )
 
-            print("Successfully added rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
-            return "Successfully added rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
+            print("Successfully added rule: user; {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
+            return "Successfully added rule: user; {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Jira: failed adding comment " + je.text)
             return "Jira: failed adding comment " + je.text
