@@ -20,7 +20,7 @@ infra_secret = None
 apigateway_api_key_id = None
 
 def lambda_handler(event, context):
-    print("Received event: " + json.dumps(event, indent=2))
+    # print("Received event: " + json.dumps(event, indent=2))
     print("Log stream name:", context.log_stream_name)
     print("Log group name:",  context.log_group_name)
     print("Request ID:", context.aws_request_id)
