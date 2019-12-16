@@ -12,6 +12,12 @@ jira_token = os.environ["jira_token"]
 api_key = None
 api_secret = None
 
+# infra key set using the get_aws_account() function
+infra_key = None
+infra_secret = None
+
+# api key id (used to retrieve api key name from agi gateway)
+apigateway_api_key_id = None
 
 def lambda_handler(event, context):
     print("Received event: " + json.dumps(event, indent=2))
@@ -24,6 +30,10 @@ def lambda_handler(event, context):
 
     # get account's api key and secret using aws_account passed in as argument
     try:
+        # api key id for api gateway user key
+        global apigateway_api_key_id
+        apigateway_api_key_id = event['requestContext']['identity']['apiKeyId']
+
         body_values = json.loads(event['body'])
         # response is { api_key : api_secret } dict
         get_aws_account_response = get_aws_account_creds(body_values['aws_account'])
@@ -37,14 +47,14 @@ def lambda_handler(event, context):
         print("ClientError: ", e.response)
         return {
             'statusCode': 500,
-            'body': json.dumps("{}".format(str(e))),
+            'body': json.dumps("ClientError: {}".format(str(e.response))),
             'headers': {'Content-Type': 'application/json'}
         }
     except Exception as e:
         print("Exception: ", e)
         return {
             'statusCode': 500,
-            'body': json.dumps("{}".format(str(e))),
+            'body': json.dumps("Exception: {}".format(str(e))),
             'headers': {'Content-Type': 'application/json'}
         }
 
@@ -84,7 +94,7 @@ def lambda_handler(event, context):
 
             return {
                 'statusCode': 200,
-                'body': json.dumps("{}".format(remove_rule_response)),
+                'body': json.dumps("{}".format(str(remove_rule_response))),
                 'headers': {'Content-Type': 'application/json'}
             }
 
@@ -106,7 +116,7 @@ def lambda_handler(event, context):
 
             return {
                     'statusCode': 200,
-                    'body': json.dumps("{}".format(add_rule_response)),
+                    'body': json.dumps("{}".format(str(add_rule_response))),
                     'headers': {'Content-Type': 'application/json'}
                 }
 
@@ -119,7 +129,7 @@ def lambda_handler(event, context):
     except Exception as e:
         return {
             'statusCode': 500,
-            'body': json.dumps("Exception: {}".format(str(e))),
+            'body': json.dumps("Exception in Lambda Handler: {}".format(str(e))),
             'headers': {'Content-Type': 'application/json'}
         }
 
@@ -139,11 +149,14 @@ def get_aws_account_creds(aws_account):
     accounts['symphony-aws-customer2'] = {customer2_key: customer2_secret}
 
     # infra creds
+    global infra_key
     infra_key = os.environ["infra_key"]
+    global infra_secret
     infra_secret = os.environ["infra_secret"]
     accounts['symphony-aws-infra'] = {infra_key: infra_secret}
 
     return accounts[aws_account]
+
 
 
 
@@ -185,6 +198,27 @@ def get_boto_client(region, service):
     return boto_client
 
 
+# get api key name for user key from api gateway
+def get_apigateway_api_key_name(apiKeyId):
+
+    try:
+        boto_client = boto3.client(
+            'apigateway',
+            region_name='us-east-1',
+            aws_access_key_id=str(infra_key),
+            aws_secret_access_key=str(infra_secret),
+        )
+        get_api_key_response = boto_client.get_api_key(
+            apiKey=str(apiKeyId),
+            includeValue=False
+        )
+    except ClientError as e:
+        print("Client Error: {}".format(str(e)))
+        return "Client Error: {}".format(str(e))
+
+    return str(get_api_key_response['name'])
+
+
 
 # checks if sec group is 443/8444 or 22(sftp) sec group
 def check_allowed_secgroup(region, secgroup_id):
@@ -198,8 +232,8 @@ def check_allowed_secgroup(region, secgroup_id):
         response = sec_group_boto_client.describe_security_groups(GroupIds=[secgroup_id])
         group_name = response['SecurityGroups'][0]['GroupName']
     except ClientError as e:
-        print(e)
-        return e
+        print("Client Error: {}".format(str(e.response)))
+        return "Client Error: {}".format(str(e.response))
 
     # print("Group name: ", group_name)
 
@@ -227,9 +261,8 @@ def get_rules(region, secgroup_id):
         return sec_group_rules
 
     except ClientError as e:
-        print(e.response)
-        return e
-
+        print("Client Error: {}".format(str(e.response)))
+        return "Client Error: {}".format(str(e.response))
 
 
 def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
@@ -244,11 +277,15 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
     # True if yes, False if no
     allowed_to_modify = check_allowed_secgroup(region=region, secgroup_id=secgroup_id)
 
+    apigateway_key_name = get_apigateway_api_key_name(apigateway_api_key_id)
+
     # can only modify following ports (standard, api or sftp)
     if ((port == 443 or port == 8444 or port == 22) and (allowed_to_modify)):
         try:
             jira_response = jira_ticket_add_comment(user, "removed", secgroup_id, protocol, cidr_ip, port, sor_ticket)
+
             sec_group_boto_resource = get_boto_resource(region=region, service='ec2', secgroup_id=secgroup_id)
+
             response = sec_group_boto_resource.revoke_ingress(
                 IpProtocol=protocol,
                 CidrIp=cidr_ip,
@@ -257,17 +294,17 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 DryRun=False
             )
 
-            print("Successfully removed rule; user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
-            return "Successfully removed rule; user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
+            print("Successfully removed rule; user: {} ({}), cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, apigateway_key_name, cidr_ip, port, protocol, secgroup_id, sor_ticket))
+            return "Successfully removed rule; user: {} ({}), cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, apigateway_key_name, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Jira: failed adding comment " + je.text)
             return "Jira: failed adding comment " + je.text
         except ClientError as e:
-            print("Client Error: {}".format(e))
-            return "Client Error: {}".format(e)
+            print("Client Error: {}".format(str(e.response)))
+            return "Client Error: {}".format(str(e.response))
         except Exception as e:
-            print(e)
-            return e
+            print("Exception: {}".format(str(e)))
+            return "Exception: {}".format(str(e))
     else:
         print("Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group")
         return "Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group"
@@ -278,22 +315,25 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
 
 def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
 
-    # True if yes, False if no
-    allowed_to_modify = check_allowed_secgroup(region=region, secgroup_id=secgroup_id)
-
     if str(sor_ticket).startswith('SOR-'):
         pass
     else:
         print("Failed: Description argument needs to start with 'SOR-'")
         return "Failed: Description argument needs to start with 'SOR-'"
 
+    # True if yes, False if no
+    allowed_to_modify = check_allowed_secgroup(region=region, secgroup_id=secgroup_id)
+
+    apigateway_key_name = get_apigateway_api_key_name(apigateway_api_key_id)
+
     # can only modify following ports (standard, api or sftp)
     if ((port == 443 or port == 8444 or port == 22) and (allowed_to_modify)):
 
         try:
             jira_response = jira_ticket_add_comment(user, "added", secgroup_id, protocol, cidr_ip, port, sor_ticket)
+
             sec_group_boto_resource = get_boto_resource(region=region, service='ec2', secgroup_id=secgroup_id)
-            # add rule
+
             response = sec_group_boto_resource.authorize_ingress(
                 IpPermissions=[
                     {
@@ -311,17 +351,17 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 DryRun=False
             )
 
-            print("Successfully added rule: user; {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket))
-            return "Successfully added rule: user; {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
+            print("Successfully added rule; user: {} ({}), cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, apigateway_key_name, cidr_ip, port, protocol, secgroup_id, sor_ticket))
+            return "Successfully added rule; user: {} ({}), cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, apigateway_key_name, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
             print("Jira: failed adding comment " + je.text)
             return "Jira: failed adding comment " + je.text
         except ClientError as e:
-            print("Client Error: {}".format(e))
-            return "Client Error: {}".format(e)
+            print("Client Error: {}".format(str(e)))
+            return "Client Error: {}".format(str(e))
         except Exception as e:
-            print(e)
-            return e
+            print("Exception: {}".format(str(e)))
+            return "Exception: {}".format(str(e))
 
     else:
         print("Failed: Not allowed to modify. Check allowed ports and ensure you're allowed to modify this security group")
