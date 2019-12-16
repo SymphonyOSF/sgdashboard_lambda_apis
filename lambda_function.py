@@ -17,6 +17,7 @@ def lambda_handler(event, context):
     print("Received event: " + json.dumps(event, indent=2))
     print("Log stream name:", context.log_stream_name)
     print("Log group name:",  context.log_group_name)
+    print("User", context.identity.user)
     print("Request ID:", context.aws_request_id)
     print("Mem. limits(MB):", context.memory_limit_in_mb)
     # Code will execute quickly, so we add a 1 second intentional delay so you can see that in time remaining value.
@@ -201,18 +202,18 @@ def check_allowed_secgroup(region, secgroup_id):
         print(e)
         return e
 
-    print("Group name: ", group_name)
+    # print("Group name: ", group_name)
 
     # checks for correct sec group
     if (('sftp' in group_name) or ('443' in group_name) or ('8444' in group_name)):
         if ('4432407' not in group_name) and ('443_2407' not in group_name) and ('443mds' not in group_name):
-            print("Correct sec group")
+            # print("Correct sec group")
             return True
         else:
-            print("Incorrect sec group")
+            # print("Incorrect sec group")
             return False
     else:
-        print("Incorrect sec group")
+        # print("Incorrect sec group")
         return False
 
 
@@ -257,10 +258,10 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 DryRun=False
             )
 
-            return "Successfully removed rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
+            return "Successfully removed rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
-            print("Failed adding comment to Jira: ", je.text)
-            return "Jira adding comment failed: " + je.text
+            print("Jira: failed adding comment " + je.text)
+            return "Jira: failed adding comment " + je.text
         except ClientError as e:
             return "Client Error: {}".format(e)
         except Exception as e:
@@ -306,10 +307,10 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
                 ],
                 DryRun=False
             )
-            return "Successfully added rule, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(cidr_ip, port, protocol, secgroup_id, sor_ticket)
+            return "Successfully added rule: user: {}, cidr: {}, port: {}, protocol: {}, security group: {}, ticket {}".format(user, cidr_ip, port, protocol, secgroup_id, sor_ticket)
         except JIRAError as je:
-            print("Failed adding comment to Jira: ", je.text)
-            return "Jira adding comment failed: " + je.text
+            print("Jira: failed adding comment " + je.text)
+            return "Jira: failed adding comment " + je.text
         except ClientError as e:
             return "Client Error: {}".format(e)
         except Exception as e:
