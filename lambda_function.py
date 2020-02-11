@@ -159,7 +159,6 @@ def get_aws_account_creds(aws_account):
 
 
 
-
 def jira_ticket_add_comment(user, action, secgroup_id, protocol, cidr_ip, port, sor_ticket):
 
     jira_api_url = "https://perzoinc.atlassian.net"
@@ -282,7 +281,7 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
     # can only modify following ports (standard, api or sftp)
     if ((port == 443 or port == 8444 or port == 22) and (allowed_to_modify)):
         try:
-            jira_response = jira_ticket_add_comment(user, "removed", secgroup_id, protocol, cidr_ip, port, sor_ticket)
+            # jira_response = jira_ticket_add_comment(user, "removed", secgroup_id, protocol, cidr_ip, port, sor_ticket)
 
             sec_group_boto_resource = get_boto_resource(region=region, service='ec2', secgroup_id=secgroup_id)
 
@@ -330,7 +329,7 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
     if ((port == 443 or port == 8444 or port == 22) and (allowed_to_modify)):
 
         try:
-            jira_response = jira_ticket_add_comment(user, "added", secgroup_id, protocol, cidr_ip, port, sor_ticket)
+            # jira_response = jira_ticket_add_comment(user, "added", secgroup_id, protocol, cidr_ip, port, sor_ticket)
 
             sec_group_boto_resource = get_boto_resource(region=region, service='ec2', secgroup_id=secgroup_id)
 
