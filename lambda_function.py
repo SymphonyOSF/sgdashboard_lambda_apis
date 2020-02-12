@@ -224,8 +224,7 @@ def check_allowed_secgroup(region, secgroup_id):
 
     sec_group_boto_client = get_boto_client(region=region, service='ec2')
 
-    group_name = None
-    str(group_name).lower()
+    group_name = "empty security group name"
 
     try:
         response = sec_group_boto_client.describe_security_groups(GroupIds=[secgroup_id])
@@ -234,7 +233,8 @@ def check_allowed_secgroup(region, secgroup_id):
         print("Client Error: {}".format(str(e.response)))
         return "Client Error: {}".format(str(e.response))
 
-    # print("Group name: ", group_name)
+    str(group_name).lower()
+    print("Security group name: {}".format(group_name))
 
     # checks for correct sec group
     if (('sftp' in group_name) or ('443' in group_name) or ('8444' in group_name)):
@@ -275,6 +275,7 @@ def remove_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
 
     # True if yes, False if no
     allowed_to_modify = check_allowed_secgroup(region=region, secgroup_id=secgroup_id)
+    print("Allowed to modify sec group: {}".format(allowed_to_modify))
 
     apigateway_key_name = get_apigateway_api_key_name(apigateway_api_key_id)
 
@@ -322,6 +323,7 @@ def add_rule(user, region, secgroup_id, protocol, cidr_ip, port, sor_ticket):
 
     # True if yes, False if no
     allowed_to_modify = check_allowed_secgroup(region=region, secgroup_id=secgroup_id)
+    print("Allowed to modify sec group: {}".format(allowed_to_modify))
 
     apigateway_key_name = get_apigateway_api_key_name(apigateway_api_key_id)
 
