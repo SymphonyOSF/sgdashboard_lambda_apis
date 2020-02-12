@@ -228,12 +228,11 @@ def check_allowed_secgroup(region, secgroup_id):
 
     try:
         response = sec_group_boto_client.describe_security_groups(GroupIds=[secgroup_id])
-        group_name = response['SecurityGroups'][0]['GroupName']
+        group_name = str(response['SecurityGroups'][0]['GroupName']).lower()
     except ClientError as e:
         print("Client Error: {}".format(str(e.response)))
         return "Client Error: {}".format(str(e.response))
 
-    str(group_name).lower()
     print("Security group name: {}".format(group_name))
 
     # checks for correct sec group
